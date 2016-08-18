@@ -15,3 +15,5 @@ Data for this project were collected at Pinnacles National Park in California in
 We are currently in the process of submitting the manuscript for publication.  
 Authors: Joan Meiners, Terry Griswold, and Morgan Ernest.
 Code and data will be stored here.  Data will also be deposited at the Dryad Digital Repository at datadryad.org
+
+Corresponding author: joan.meiners@gmail.com
