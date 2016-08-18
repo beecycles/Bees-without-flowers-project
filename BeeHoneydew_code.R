@@ -1,6 +1,7 @@
 #######################################################
 ######## Chamise Honeydew Use Manuscript Code #########
 #######################################################
+######### Joan Meiners Last updated June 2016 #########
 
 ## Import dataset and Rename Chamise_summ
 Chamise_summ <- read.csv("/Users/joanmeiners/Dropbox/Chamise_manuscript/Meiners_BeeHoneydew_data.csv", header = TRUE)
@@ -78,6 +79,8 @@ pilot_1
 quartz(width = 8, height = 4)
 tiff(filename = "ChamisePilot.tiff", units = "in", compression = "lzw", res = 300, width = 8, height = 4)
 dev.off()
+
+################# (Figure 2 is a colletion of photographs) ##############
 
 ################ Figure 3: Effect size vs. Total Bee Count ##############
 Cohens_D = c(0.508291, 0.040563, 0.222611, 0.175647, 1.032771, 0.662503)
