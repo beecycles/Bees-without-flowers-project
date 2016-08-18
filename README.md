@@ -1,4 +1,4 @@
-# Bees-without-flowers-project
+# Bees-without-flowers-project2016
 Code and data for manuscript and project about bees without flowers: honeydew foraging
 
 Project abstract:
