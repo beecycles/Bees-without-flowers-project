@@ -15,8 +15,8 @@ Chamise_summ$Site = as.factor(Chamise_summ$Site)
 Chamise_summ$Treatment_Code = as.factor(Chamise_summ$Treatment_Code)
 
 
-########### Main Model: GLMM ############ 
-## (This is the model used in M.S. Thesis, Meiners 2016, Utah State University) ##
+###### NOTE: (This is the model used in M.S. Thesis, Meiners 2016, Utah State University)
+###### (For the model used in the publication please see the mixed-models.R file in beecycles github repository.(Treatment results do not vary between models.))
 library(lme4)
 library(car)
 
