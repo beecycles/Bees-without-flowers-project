@@ -4,7 +4,9 @@ TODO:
 * Lines 217-219: Please clarify whether this comparison is between the moldy + water vs. the non-moldy + water treatment. Also, here and below, P-values from lme4 should be accompanied by the chi-square value from the model, plus degrees of freedom.
 * They have seven different treatments and 3 plants per treatment and site (Lines 117-119). Interestingly, they found that study site effect is zero and conclude that there is not a significant effect. However, this results could be indicating too few data instead. You should check random coefficient (i.e. treatment effects) per site and discuss the variance components.
 
-```{r}
+# Set up the workspace
+
+```{r, message=FALSE}
 set.seed(1)
 library(lme4)      # For model fitting
 library(tidyverse)
@@ -13,13 +15,23 @@ library(mixtools)  # For bivariate Gaussian ellipses
 d = read.csv("Meiners_BeeHoneydew_data.csv")
 ```
 
+# Look for seasonal effects
 
-No directional trend in bee count over the course of the field season, after
-accounting for time of day.
+No clear directional trend in bee count over the course of the field season, 
+after accounting for time of day.
 ```{r}
 summary(glmer.nb(Bee_Count ~ julDate + scale(min_day) + (1|Plant_Code), data = d))
 ```
 
+This suggests that most of the variance across days is due to day-specific
+factors (such as recent weather) rather than a seasonal effect, and is best
+represented by drawing days from a distribution with a random effect (rather 
+than imposing a linear shift in bee abundance over the course of the season)
+
+# Core model formulas
+
+We will be focusing on models that include all of the treatment effects,
+and on models that omit the sugar effect.
 
 ```{r}
 raw_formula = "Bee_Count ~ Mold * Insecticide + 
@@ -39,6 +51,9 @@ no_sugar_formula = as.formula(
 print(no_sugar_formula)
 ```
 
+# Model fitting
+
+We modeled the bee counts with negative binomial and Poisson mixed models.
 
 ```{r}
 # Some versions of the model only reach the maximum-likelihood
@@ -50,7 +65,6 @@ Honeydew <- glmer.nb(
   data=d,
   control = control
 )
-summary(Honeydew)
 
 
 Honeydew_poisson <- glmer(
@@ -59,15 +73,19 @@ Honeydew_poisson <- glmer(
   family = poisson,
   control = control
 )
-summary(Honeydew_poisson)
 
 Honeydew_no_sugar <- glmer.nb(
   no_sugar_formula,
   data=d,
   control = control
 )
-summary(Honeydew_no_sugar)
 ```
+
+# Model comparison
+
+Which elements of the models fit above are essential? See what happens to model
+performance (AIC) when various degrees of freedom are removed from the 
+full `Honeydew` negative binomial model.
 
 ```{r}
 # Drop predictors from the model & reformat the output for
@@ -88,14 +106,22 @@ make_dropped_df = function(x, distribution, n_fewer_df = 0){
 
 # Use the above function on both of the full models, then manually add
 # a row for the no_sugar model.
-# Finally, eliminate < and > to prevent formatting errors
+# Finally, eliminate "<" and ">" to prevent formatting errors
 initial_dropped_df = rbind(make_dropped_df(Honeydew, "Negative Binomial", 0), 
                            make_dropped_df(Honeydew_poisson, "Poisson", 1)) %>% 
   rbind(data_frame(dropped = "Sugar", `df reduction` = 2, 
                    AIC = AIC(Honeydew_no_sugar), 
                    distribution = "Negative Binomial")) %>% 
   mutate(dropped = gsub("[\\<\\>]", "", dropped))
+```
 
+Omitting site or either of the interaction terms (lines 1, 2, 4 and 5) produces 
+a relatively small change in AIC, compared with the full model (line 3). However,
+none of the models without overdispersion (i.e. the Poisson-distributed models)
+had any appreciable AIC weight, nor did the model that removed all sugar effects 
+(line 10).
+
+```{r}
 # Sort, calculate ΔAIC & AIC weights, format for printing with 
 # reasonable precision
 initial_dropped_df %>% 
@@ -103,25 +129,27 @@ initial_dropped_df %>%
   mutate(`ΔAIC` = AIC - AIC[1]) %>% 
   select(-AIC) %>% 
   mutate(`AIC weight (%)` = 100 * exp(-`ΔAIC` / 2) / sum(exp(-`ΔAIC` / 2))) %>% 
-  knitr::kable(digits = c(rep(1, 3), 2, 1), align = c("lclrr"))
+  cbind(` `=1:nrow(.), .) %>% 
+  knitr::kable(digits = c(rep(1, 4), 2, 1), align = c("llclrr"))
 ```
 
-
-```{r}
-summary(Honeydew, correlation = FALSE)
-anova(Honeydew)
-```
-
-Compare the full model with the no-sugar negative binomial model and with the
-Poisson model using $\chi^2$ tests. 
+$\chi^2$ tests show the same result: omitting sugar effects or overdispersion
+significantly reduces model performance (P < .000001).
 ```{r}
 anova(Honeydew, Honeydew_no_sugar)
 anova(Honeydew, Honeydew_poisson)
 ```
 
+
+# Description of the full `Honeydew` model
+```{r}
+summary(Honeydew, correlation = FALSE)
+anova(Honeydew)
+```
+
+# Code for Figure 3
+
 ```{r, fig.height=6, fig.width=6}
-
-
 # Indicator for, "was experimental manipulation i applied to treatment j?""
 Mold =        c(1, 1, 0, 0, 0, 0, 0)
 Insecticide = c(0, 1, 0, 1, 0, 0, 0)
@@ -184,10 +212,15 @@ text(log(.04), mu * 1.2, treat_names, pos = 2, col = colors)
 abline(0, 1)
 text(log(.02), log(.02), "treatment = control", pos = 2)
 
+```
 
+# Post-hoc comparisons between specific treatment pairs
+
+```{r}
 # # P-value for "Sugar effect > Mold effect"
 # mean(coef_samples[,"Mold"] > coef_samples[,"Sugar"])
 # 
 # # P-value for "Sugar+Paint effect < Sugar effect"
 # mean(coef_samples[,"Sugar"] + coef_samples[,"Paint"] + coef_samples[,"Sugar:Paint"] > coef_samples[,"Sugar"])
 ```
+
