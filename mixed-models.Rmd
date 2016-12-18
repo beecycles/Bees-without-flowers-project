@@ -1,9 +1,3 @@
-TODO:
-* The authors should explain, briefly, where the expected frequency for negative binomial models comes from.
-* This should state that the plant was nested within the site, right? And why did they not include "site" as a random effect for the main model described at lines 170-171?  
-* Lines 217-219: Please clarify whether this comparison is between the moldy + water vs. the non-moldy + water treatment. Also, here and below, P-values from lme4 should be accompanied by the chi-square value from the model, plus degrees of freedom.
-* They have seven different treatments and 3 plants per treatment and site (Lines 117-119). Interestingly, they found that study site effect is zero and conclude that there is not a significant effect. However, this results could be indicating too few data instead. You should check random coefficient (i.e. treatment effects) per site and discuss the variance components.
-
 # Set up the workspace
 
 ```{r, message=FALSE}
@@ -15,23 +9,24 @@ library(mixtools)  # For bivariate Gaussian ellipses
 d = read.csv("Meiners_BeeHoneydew_data.csv")
 ```
 
-# Look for seasonal effects
-
-No clear directional trend in bee count over the course of the field season, 
-after accounting for time of day.
-```{r}
-summary(glmer.nb(Bee_Count ~ julDate + scale(min_day) + (1|Plant_Code), data = d))
-```
-
-This suggests that most of the variance across days is due to day-specific
-factors (such as recent weather) rather than a seasonal effect, and is best
-represented by drawing days from a distribution with a random effect (rather 
-than imposing a linear shift in bee abundance over the course of the season)
-
 # Core model formulas
 
-We will be focusing on models that include all of the treatment effects,
-and on models that omit the sugar effect.
+We will be focusing on models that include fixed effect for the experimental 
+manipulations and for site, as well as a continuous time-of-day variable to 
+capture variation in bee activity associated with diurnal patterns.
+We modeled variation among days (e.g. due to differences in recent weather 
+events) and among individual plants using random effects.
+
+While additional variables were recorded during sampling, their primary purpose
+was to keep the sampling effort focused on a narrow range of environmental 
+conditions (because environmental effects such as humidity were not related to
+our primary hypotheses). We thus did not expect these variables to vary enough
+in our samples to substantially affect the results, and did not include them
+in most of our analyses. In the final section of this Appendix, we show that
+the inclusion of these variables (and of a continuous measure of seasonality) 
+do not affect the statistical significance or point estimates associated with
+any treatment effects, and that they do not significantly improve model fit in 
+terms of $\chi^2$ or AIC.
 
 ```{r}
 raw_formula = "Bee_Count ~ Mold * Insecticide + 
@@ -42,7 +37,13 @@ raw_formula = "Bee_Count ~ Mold * Insecticide +
                            (1|julDate)"
 
 formula = as.formula(raw_formula)
+```
 
+We also fit a model that did not include sugar as a predictor variable, to 
+assess whether its inclusion substantially improves our ability to predict bee
+density. 
+
+```{r}
 # Drop "Sugar" and the asterisk from the formula
 no_sugar_formula = as.formula(
   gsub("Sugar \\* ", "", raw_formula)
@@ -53,7 +54,8 @@ print(no_sugar_formula)
 
 # Model fitting
 
-We modeled the bee counts with negative binomial and Poisson mixed models.
+We modeled the bee counts with negative binomial and Poisson mixed models with
+the default log link.
 
 ```{r}
 # Some versions of the model only reach the maximum-likelihood
@@ -176,11 +178,11 @@ row.names(newdata) = treat_names
 parameter_mu = fixef(Honeydew)
 parameter_sigma = as.matrix(vcov(Honeydew))
 
+# Generate Monte Carlo estimates of the lme4 parameters
+posterior_samples = MASS::mvrnorm(1E6, parameter_mu, parameter_sigma) %*% t(newdata)
 
-posterior_samples = MASS::mvrnorm(1E5, parameter_mu, parameter_sigma) %*% t(newdata)
-
+# 
 mu = colMeans(posterior_samples)
-
 variances = diag(cov(posterior_samples))
 covariance_with_control = cov(posterior_samples)["Control", ]
 
@@ -217,10 +219,43 @@ text(log(.02), log(.02), "treatment = control", pos = 2)
 # Post-hoc comparisons between specific treatment pairs
 
 ```{r}
-# # P-value for "Sugar effect > Mold effect"
-# mean(coef_samples[,"Mold"] > coef_samples[,"Sugar"])
-# 
-# # P-value for "Sugar+Paint effect < Sugar effect"
-# mean(coef_samples[,"Sugar"] + coef_samples[,"Paint"] + coef_samples[,"Sugar:Paint"] > coef_samples[,"Sugar"])
+# P-value for "Sugar effect > Mold effect"
+mean(posterior_samples[, "Natural Mold"] > posterior_samples[, "Sugar"])
+
+
+# P-value for "Sugar+Paint effect < Sugar effect"
+mean(posterior_samples[,"Sugar + Black Paint"] > posterior_samples[,"Sugar"])
 ```
 
+# Comparing to a model with environmental predictors & continuous date
+
+We could have obtained essentially the same results with a much larger model that 
+included a fixed effect for date and environmental conditions (i.e., there would
+still be a significant sugar effect with point estimate $\approx$2.4, 
+a significant mold effect with point estimate $\approx$1.2, and a significant 
+mold/insecticide interaction with point estimate $\approx$-1.5). 
+
+However, the eight degrees of freedom associated with environmental conditions
+and the fixed effect for date do not improve the model fit enough to 
+justify the additional complexity ($\chi^2$ > 0.25, higher AIC), so we disregard
+them outide of this section.
+
+```{r}
+Honeydew_env = glmer.nb(Bee_Count ~ Mold * Insecticide + 
+               Sugar * Paint + 
+               scale(min_day) + 
+               Site + 
+               scale(min_day) + 
+               scale(Temp_F) + 
+               scale(Wind_mph) + 
+               Conditions + 
+               scale(Barometric) +
+               scale(Humidity) + 
+               scale(julDate) +
+               (1|Plant_Code) + 
+               (1|julDate), 
+             data = d, 
+             control = control)
+print(summary(Honeydew_env), correlation = FALSE)
+anova(Honeydew, Honeydew_env)
+```
