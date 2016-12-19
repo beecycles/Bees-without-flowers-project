@@ -1,6 +1,9 @@
 ---
 title: "Appendix for 'Bees Without Flowers'"
 output: 
+  pdf_document:
+    toc: true
+    number_sections: true
   html_document:
     keep_md: true
     toc: true
@@ -161,7 +164,7 @@ anova(Honeydew)
 
 # Code for Figure 3
 
-```{r, fig.height=6, fig.width=6}
+```{r, fig.height=6, fig.width=6, dev="png", dpi=300}
 # Indicator for, "was experimental manipulation i applied to treatment j?""
 Mold =        c(1, 1, 0, 0, 0, 0, 0)
 Insecticide = c(0, 1, 0, 1, 0, 0, 0)

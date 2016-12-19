@@ -143,7 +143,8 @@ initial_dropped_df %>%
   arrange(AIC) %>% 
   mutate(`$\\Delta$AIC` = AIC - AIC[1]) %>% 
   select(-AIC) %>% 
-  mutate(`AIC weight (%)` = 100 * exp(-`$\\Delta$AIC` / 2) / sum(exp(-`$\\Delta$AIC` / 2))) %>% 
+  mutate(`AIC weight (%)` = 100 * exp(-`$\\Delta$AIC` / 2) / 
+           sum(exp(-`$\\Delta$AIC` / 2))) %>% 
   cbind(` `=1:nrow(.), .) %>% 
   knitr::kable(digits = c(rep(1, 4), 2, 1), align = c("llclrr"))
 ```
@@ -357,12 +358,15 @@ plot_data = expand.grid(x = seq(log(.01), log(3), length = 250),
             y = seq(log(.02), log(6), length = 250)) %>% 
   mutate(Sugar = bivariate_normal_control_density(., "Sugar"),
          `Natural Mold` = bivariate_normal_control_density(., "Natural Mold"),
-         `Natural Mold + Insecticide` = bivariate_normal_control_density(., "Natural Mold + Insecticide")) %>% 
-  gather(key = treatment, value = likelihood, Sugar, `Natural Mold`, `Natural Mold + Insecticide`) %>% 
+         `Natural Mold + Insecticide` = 
+           bivariate_normal_control_density(., "Natural Mold + Insecticide")) %>% 
+  gather(key = treatment, value = likelihood, Sugar, 
+         `Natural Mold`, `Natural Mold + Insecticide`) %>% 
   mutate(scaled_likelihood = likelihood / max(likelihood))
 
 plot_data %>% 
-  ggplot(aes(x = x, y = y, alpha = scaled_likelihood, fill = treatment)) + 
+  ggplot(aes(x = x, y = y, alpha = scaled_likelihood, 
+             fill = treatment)) + 
   geom_tile() +
   scale_alpha_continuous(range = c(0, 1), guide = FALSE) + 
   geom_abline(intercept = 0, slope = 1, color = alpha("black", .5)) +
