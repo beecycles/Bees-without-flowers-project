@@ -137,30 +137,30 @@ had any appreciable AIC weight, nor did the model that removed all sugar effects
 
 
 ```r
-# Sort, calculate ΔAIC & AIC weights, format for printing with 
+# Sort, calculate DeltaAIC & AIC weights, format for printing with 
 # reasonable precision
 initial_dropped_df %>% 
   arrange(AIC) %>% 
-  mutate(`ΔAIC` = AIC - AIC[1]) %>% 
+  mutate(`$\\Delta$AIC` = AIC - AIC[1]) %>% 
   select(-AIC) %>% 
-  mutate(`AIC weight (%)` = 100 * exp(-`ΔAIC` / 2) / sum(exp(-`ΔAIC` / 2))) %>% 
+  mutate(`AIC weight (%)` = 100 * exp(-`$\\Delta$AIC` / 2) / sum(exp(-`$\\Delta$AIC` / 2))) %>% 
   cbind(` `=1:nrow(.), .) %>% 
   knitr::kable(digits = c(rep(1, 4), 2, 1), align = c("llclrr"))
 ```
 
-     dropped             df reduction   distribution          ΔAIC   AIC weight (%)
----  -----------------  --------------  ------------------  ------  ---------------
-1    Site                     2         Negative Binomial     0.00             59.4
-2    Sugar:Paint              1         Negative Binomial     1.58             26.9
-3    none                     0         Negative Binomial     3.57             10.0
-4    Mold:Insecticide         1         Negative Binomial     5.68              3.5
-5    scale(min_day)           1         Negative Binomial    11.40              0.2
-6    Site                     3         Poisson              28.16              0.0
-7    Sugar:Paint              2         Poisson              29.97              0.0
-8    none                     1         Poisson              31.94              0.0
-9    Mold:Insecticide         2         Poisson              34.06              0.0
-10   Sugar                    2         Negative Binomial    38.69              0.0
-11   scale(min_day)           2         Poisson              71.34              0.0
+     dropped             df reduction   distribution         $\Delta$AIC   AIC weight (%)
+---  -----------------  --------------  ------------------  ------------  ---------------
+1    Site                     2         Negative Binomial           0.00             59.4
+2    Sugar:Paint              1         Negative Binomial           1.58             26.9
+3    none                     0         Negative Binomial           3.57             10.0
+4    Mold:Insecticide         1         Negative Binomial           5.68              3.5
+5    scale(min_day)           1         Negative Binomial          11.40              0.2
+6    Site                     3         Poisson                    28.16              0.0
+7    Sugar:Paint              2         Poisson                    29.97              0.0
+8    none                     1         Poisson                    31.94              0.0
+9    Mold:Insecticide         2         Poisson                    34.06              0.0
+10   Sugar                    2         Negative Binomial          38.69              0.0
+11   scale(min_day)           2         Poisson                    71.34              0.0
 
 $\chi^2$ tests show the same result: omitting sugar effects or overdispersion
 significantly reduces model performance (P < .000001).
@@ -480,14 +480,14 @@ print(summary(Honeydew_env), correlation = FALSE)
 ## 
 ## Fixed effects:
 ##                                        Estimate Std. Error z value
-## (Intercept)                            -1.94570    0.69953  -2.781
+## (Intercept)                            -1.94570    0.69952  -2.781
 ## Mold                                    1.17431    0.50501   2.325
 ## Insecticide                             0.42923    0.53528   0.802
 ## Sugar                                   2.39457    0.47917   4.997
 ## Paint                                  -0.61127    0.61236  -0.998
 ## scale(min_day)                          0.01771    0.15687   0.113
-## SiteB                                   0.73399    0.57845   1.269
-## SiteC                                   0.50101    0.53279   0.940
+## SiteB                                   0.73399    0.57844   1.269
+## SiteC                                   0.50101    0.53278   0.940
 ## scale(Temp_F)                           0.22330    0.18097   1.234
 ## scale(Wind_mph)                         0.19258    0.12820   1.502
 ## ConditionsCompletly Cloudy (no Shadow)  0.39652    0.55278   0.717
@@ -501,16 +501,16 @@ print(summary(Honeydew_env), correlation = FALSE)
 ##                                        Pr(>|z|)    
 ## (Intercept)                             0.00541 ** 
 ## Mold                                    0.02006 *  
-## Insecticide                             0.42263    
+## Insecticide                             0.42262    
 ## Sugar                                  5.81e-07 ***
 ## Paint                                   0.31817    
 ## scale(min_day)                          0.91013    
 ## SiteB                                   0.20448    
-## SiteC                                   0.34704    
+## SiteC                                   0.34703    
 ## scale(Temp_F)                           0.21724    
 ## scale(Wind_mph)                         0.13304    
 ## ConditionsCompletly Cloudy (no Shadow)  0.47318    
-## ConditionsFull Sun                      0.23392    
+## ConditionsFull Sun                      0.23391    
 ## ConditionsPartly Cloudy (>50% sun)      0.59072    
 ## scale(Barometric)                       0.05521 .  
 ## scale(Humidity)                         0.85623    
