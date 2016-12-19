@@ -145,7 +145,7 @@ initial_dropped_df %>%
   select(-AIC) %>% 
   mutate(`AIC weight (%)` = 100 * exp(-`$\\Delta$AIC` / 2) / 
            sum(exp(-`$\\Delta$AIC` / 2))) %>% 
-  cbind(` `=1:nrow(.), .) %>% 
+  cbind(` ` = 1:nrow(.), .) %>% 
   knitr::kable(digits = c(rep(1, 4), 2, 1), align = c("llclrr"))
 ```
 
@@ -347,15 +347,17 @@ bivariate_normal_control_density = function(x, name){
 }
 
 label_df = data.frame(
-  x = c(rep(log(.05), 3), .9),
-  y = c(mu[c("Sugar", "Natural Mold", "Natural Mold + Insecticide")], 1),
-  label = c("Sugar", "Natural Mold", "Natural Mold +\nInsecticide", "Treatment = Control")
+  x = c(rep(log(.05), 3)),
+  y = c(mu[c("Sugar", "Natural Mold", "Natural Mold + Insecticide")] - 0.25),
+  label = c("Sugar", "Natural Mold", "Natural Mold +\nInsecticide")
 )
+line_df = data.frame(x = log(.025), y = log(.02), 
+                     label = "Treatment = Control")
 
 # for each set of x and y values, calculate bivariate densities,
 # then tidy up the results for ggplot
-plot_data = expand.grid(x = seq(log(.01), log(3), length = 250), 
-            y = seq(log(.02), log(6), length = 250)) %>% 
+plot_data = expand.grid(x = seq(log(.01), log(1), length = 250), 
+            y = seq(log(.01), log(6), length = 250)) %>% 
   mutate(Sugar = bivariate_normal_control_density(., "Sugar"),
          `Natural Mold` = bivariate_normal_control_density(., "Natural Mold"),
          `Natural Mold + Insecticide` = 
@@ -380,7 +382,9 @@ plot_data %>%
   scale_y_continuous(breaks = log(10^seq(-10, 10)), labels = 10^seq(-10, 10),
                      expand = c(0, 0)) +
   geom_text(data = label_df, aes(x = x, y = y, label = label),
-            inherit.aes = FALSE, hjust = "right")
+            inherit.aes = FALSE, hjust = "right") + 
+  geom_text(data = line_df, aes(x = x, y = y, label = label), 
+            inherit.aes = FALSE, hjust = "left")
 ```
 
 ![](mixed-models_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
@@ -440,20 +444,20 @@ them outide of this section.
 
 ```r
 Honeydew_env = glmer.nb(Bee_Count ~ Mold * Insecticide + 
-               Sugar * Paint + 
-               scale(min_day) + 
-               Site + 
-               scale(min_day) + 
-               scale(Temp_F) + 
-               scale(Wind_mph) + 
-               Conditions + 
-               scale(Barometric) +
-               scale(Humidity) + 
-               scale(julDate) +
-               (1|Plant_Code) + 
-               (1|julDate), 
-             data = d, 
-             control = control)
+                          Sugar * Paint + 
+                          scale(min_day) + 
+                          Site + 
+                          scale(min_day) + 
+                          scale(Temp_F) + 
+                          scale(Wind_mph) + 
+                          Conditions + 
+                          scale(Barometric) +
+                          scale(Humidity) + 
+                          scale(julDate) +
+                          (1|Plant_Code) + 
+                          (1|julDate), 
+                        data = d, 
+                        control = control)
 print(summary(Honeydew_env), correlation = FALSE)
 ```
 
