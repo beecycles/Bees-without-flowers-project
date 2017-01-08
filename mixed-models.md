@@ -6,10 +6,13 @@
 ```r
 set.seed(1)
 library(lme4)      # For model fitting
-library(tidyverse)
-library(mixtools)  # For bivariate Gaussian ellipses
+library(tidyverse) # For data processing
+library(mvtnorm)   # for multivariate Gaussians
 
-d = read.csv("Meiners_BeeHoneydew_data.csv")
+# hours_noon represents the amount of time since noon (or until noon, if
+# the value is negative)
+d = read.csv("Meiners_BeeHoneydew_data.csv") %>% 
+  mutate(hours_noon = min_day / 60 - 12)
 ```
 
 # Core model formulas
@@ -18,7 +21,9 @@ We will be focusing on models that include fixed effect for the experimental
 manipulations and for site, as well as a continuous time-of-day variable to 
 capture variation in bee activity associated with diurnal patterns.
 We modeled variation among days (e.g. due to differences in recent weather 
-events) and among individual plants using random effects.
+events) and among individual plants using random effects. Because the number
+of sites (3) was too small to estimate site-to-site variance, we treated `Site` 
+as a fixed effect.
 
 While additional variables were recorded during sampling, their primary purpose
 was to keep the sampling effort focused on a narrow range of environmental 
@@ -35,7 +40,7 @@ terms of $\chi^2$ or AIC.
 ```r
 raw_formula = "Bee_Count ~ Mold * Insecticide + 
                            Sugar * Paint + 
-                           scale(min_day) + 
+                           hours_noon + 
                            Site +
                            (1|Plant_Code) + 
                            (1|julDate)"
@@ -58,7 +63,7 @@ print(no_sugar_formula)
 ```
 
 ```
-## Bee_Count ~ Mold * Insecticide + Paint + scale(min_day) + Site + 
+## Bee_Count ~ Mold * Insecticide + Paint + hours_noon + Site + 
 ##     (1 | Plant_Code) + (1 | julDate)
 ```
 
@@ -138,7 +143,7 @@ had any appreciable AIC weight, nor did the model that removed all sugar effects
 
 ```r
 # Sort, calculate DeltaAIC & AIC weights, format for printing with 
-# reasonable precision
+# reasonable precision using knitr's `kable` function for tables.
 initial_dropped_df %>% 
   arrange(AIC) %>% 
   mutate(`$\\Delta$AIC` = AIC - AIC[1]) %>% 
@@ -155,13 +160,13 @@ initial_dropped_df %>%
 2    Sugar:Paint              1         Negative Binomial           1.58             26.9
 3    none                     0         Negative Binomial           3.57             10.0
 4    Mold:Insecticide         1         Negative Binomial           5.68              3.5
-5    scale(min_day)           1         Negative Binomial          11.40              0.2
+5    hours_noon               1         Negative Binomial          11.40              0.2
 6    Site                     3         Poisson                    28.16              0.0
 7    Sugar:Paint              2         Poisson                    29.97              0.0
 8    none                     1         Poisson                    31.94              0.0
 9    Mold:Insecticide         2         Poisson                    34.06              0.0
 10   Sugar                    2         Negative Binomial          38.69              0.0
-11   scale(min_day)           2         Poisson                    71.34              0.0
+11   hours_noon               2         Poisson                    71.34              0.0
 
 $\chi^2$ tests show the same result: omitting sugar effects or overdispersion
 significantly reduces model performance (P < .000001).
@@ -173,9 +178,9 @@ anova(Honeydew, Honeydew_no_sugar)
 ```
 ## Data: d
 ## Models:
-## Honeydew_no_sugar: Bee_Count ~ Mold * Insecticide + Paint + scale(min_day) + Site + 
+## Honeydew_no_sugar: Bee_Count ~ Mold * Insecticide + Paint + hours_noon + Site + 
 ## Honeydew_no_sugar:     (1 | Plant_Code) + (1 | julDate)
-## Honeydew: Bee_Count ~ Mold * Insecticide + Sugar * Paint + scale(min_day) + 
+## Honeydew: Bee_Count ~ Mold * Insecticide + Sugar * Paint + hours_noon + 
 ## Honeydew:     Site + (1 | Plant_Code) + (1 | julDate)
 ##                   Df    AIC    BIC  logLik deviance Chisq Chi Df
 ## Honeydew_no_sugar 11 820.74 864.02 -399.37   798.74             
@@ -194,9 +199,9 @@ anova(Honeydew, Honeydew_poisson)
 ```
 ## Data: d
 ## Models:
-## Honeydew_poisson: Bee_Count ~ Mold * Insecticide + Sugar * Paint + scale(min_day) + 
+## Honeydew_poisson: Bee_Count ~ Mold * Insecticide + Sugar * Paint + hours_noon + 
 ## Honeydew_poisson:     Site + (1 | Plant_Code) + (1 | julDate)
-## Honeydew: Bee_Count ~ Mold * Insecticide + Sugar * Paint + scale(min_day) + 
+## Honeydew: Bee_Count ~ Mold * Insecticide + Sugar * Paint + hours_noon + 
 ## Honeydew:     Site + (1 | Plant_Code) + (1 | julDate)
 ##                  Df    AIC    BIC  logLik deviance  Chisq Chi Df
 ## Honeydew_poisson 12 813.99 861.21 -395.00   789.99              
@@ -219,8 +224,7 @@ summary(Honeydew, correlation = FALSE)
 ## Generalized linear mixed model fit by maximum likelihood (Laplace
 ##   Approximation) [glmerMod]
 ##  Family: Negative Binomial(1.8463)  ( log )
-## Formula: 
-## Bee_Count ~ Mold * Insecticide + Sugar * Paint + scale(min_day) +  
+## Formula: Bee_Count ~ Mold * Insecticide + Sugar * Paint + hours_noon +  
 ##     Site + (1 | Plant_Code) + (1 | julDate)
 ##    Data: d
 ## Control: control
@@ -240,16 +244,16 @@ summary(Honeydew, correlation = FALSE)
 ## 
 ## Fixed effects:
 ##                  Estimate Std. Error z value Pr(>|z|)    
-## (Intercept)      -1.94403    0.50128  -3.878 0.000105 ***
-## Mold              1.15201    0.49711   2.317 0.020481 *  
-## Insecticide       0.45650    0.52688   0.866 0.386259    
-## Sugar             2.41458    0.47328   5.102 3.36e-07 ***
-## Paint            -0.46287    0.60340  -0.767 0.443017    
-## scale(min_day)    0.27353    0.08792   3.111 0.001863 ** 
-## SiteB             0.28098    0.45612   0.616 0.537881    
-## SiteC             0.04974    0.46442   0.107 0.914710    
-## Mold:Insecticide -1.48408    0.71785  -2.067 0.038697 *  
-## Sugar:Paint       0.08231    0.70730   0.116 0.907354    
+## (Intercept)      -2.09367    0.50337  -4.159 3.19e-05 ***
+## Mold              1.15201    0.49708   2.318  0.02047 *  
+## Insecticide       0.45650    0.52686   0.866  0.38624    
+## Sugar             2.41458    0.47326   5.102 3.36e-07 ***
+## Paint            -0.46287    0.60338  -0.767  0.44300    
+## hours_noon        0.16880    0.05426   3.111  0.00186 ** 
+## SiteB             0.28098    0.45612   0.616  0.53788    
+## SiteC             0.04974    0.46442   0.107  0.91471    
+## Mold:Insecticide -1.48408    0.71781  -2.068  0.03869 *  
+## Sugar:Paint       0.08231    0.70727   0.116  0.90735    
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
@@ -265,13 +269,13 @@ anova(Honeydew)
 ## Insecticide       1 12.643  12.643 12.6429
 ## Sugar             1 39.648  39.648 39.6479
 ## Paint             1  2.841   2.841  2.8408
-## scale(min_day)    1 10.158  10.158 10.1582
+## hours_noon        1 10.158  10.158 10.1582
 ## Site              2  0.414   0.207  0.2069
 ## Mold:Insecticide  1  4.880   4.880  4.8797
 ## Sugar:Paint       1  0.013   0.013  0.0133
 ```
 
-# Code for Figure 3
+# Monte Carlo comparison of treatment effects
 
 
 ```r
@@ -284,13 +288,19 @@ Paint =       c(0, 0, 0, 0, 1, 0, 1)
 treat_names = c("Natural Mold", "Natural Mold + Insecticide", "Control", 
                 "Insecticide", "Black Paint", "Sugar", "Sugar + Black Paint")
 
+# Ask the model about expected visitation rates under the
+# following conditions:
+#   * Treatments as specified above
+#   * Time of day is noon
+#   * Site A (i.e. SiteB and SiteC are 0)
+#   * "Typical" plant and "typical" date (random effects set to 0)
 newdata = cbind(
   `(Intercept)` = 1,
   Mold = Mold,
   Insecticide = Insecticide,
   Sugar = Sugar,
   Paint = Paint,
-  `scale(min_day)` = 0,
+  hours_noon = 0,
   SiteB = 0,
   SiteC = 0,
   `Mold:Insecticide` = Mold * Insecticide,
@@ -309,14 +319,14 @@ newdata
 ## Black Paint                          1    0           0     0     1
 ## Sugar                                1    0           0     1     0
 ## Sugar + Black Paint                  1    0           0     1     1
-##                            scale(min_day) SiteB SiteC Mold:Insecticide
-## Natural Mold                            0     0     0                0
-## Natural Mold + Insecticide              0     0     0                1
-## Control                                 0     0     0                0
-## Insecticide                             0     0     0                0
-## Black Paint                             0     0     0                0
-## Sugar                                   0     0     0                0
-## Sugar + Black Paint                     0     0     0                0
+##                            hours_noon SiteB SiteC Mold:Insecticide
+## Natural Mold                        0     0     0                0
+## Natural Mold + Insecticide          0     0     0                1
+## Control                             0     0     0                0
+## Insecticide                         0     0     0                0
+## Black Paint                         0     0     0                0
+## Sugar                               0     0     0                0
+## Sugar + Black Paint                 0     0     0                0
 ##                            Sugar:Paint
 ## Natural Mold                         0
 ## Natural Mold + Insecticide           0
@@ -333,17 +343,17 @@ parameter_mu = fixef(Honeydew)
 parameter_sigma = as.matrix(vcov(Honeydew))
 
 # Generate Monte Carlo samples from lme4's approximate likelihood surface
-posterior_samples = MASS::mvrnorm(1E6, parameter_mu, parameter_sigma) %*% t(newdata)
-
+posterior_samples = rmvnorm(1E6, parameter_mu, parameter_sigma) %*%
+  t(newdata)
 
 mu = colMeans(posterior_samples)
 
 # Density of bivariate normal between Control and a named treatment
 bivariate_normal_control_density = function(x, name){
   names = c("Control", name)
-  mvtnorm::dmvnorm(x, 
-                   mu[names], 
-                   cov(posterior_samples)[names, names])
+  dmvnorm(x, 
+          mu[names], 
+          cov(posterior_samples)[names, names])
 }
 
 label_df = data.frame(
@@ -355,7 +365,8 @@ line_df = data.frame(x = log(.025), y = log(.02),
                      label = "Treatment = Control")
 
 # for each set of x and y values, calculate bivariate densities,
-# then tidy up the results for ggplot
+# then tidy up the results for ggplot (with an optional `theme` for
+# improved visual display)
 plot_data = expand.grid(x = seq(log(.01), log(1), length = 250), 
             y = seq(log(.01), log(6), length = 250)) %>% 
   mutate(Sugar = bivariate_normal_control_density(., "Sugar"),
@@ -393,42 +404,83 @@ plot_data %>%
 
 
 ```r
-# P-value for "Sugar visits > Mold visits"
-mean(posterior_samples[, "Natural Mold"] > posterior_samples[, "Sugar"])
+names = names(sort(colMeans(posterior_samples), decreasing = TRUE))
+grid = combn(names, 2) %>% t() %>% as.data.frame(stringsAsFactors = FALSE)
+grid$P = NA
+for (i in 1:nrow(grid)) {
+  # One-sided P-values
+  p = mean(posterior_samples[ , grid[[1]][i]] > posterior_samples[ , grid[[2]][i]])
+  
+  # Two-sided P-values
+  grid$P[i] = 1 - 2 * abs(0.5 - p)
+}
+
+table = grid %>% 
+  mutate(`False Discovery Rate` = p.adjust(P, method = "fdr")) 
 ```
 
-```
-## [1] 0.00085
-```
+Significance and False Discovery Rates for selected post-hoc comparisons between
+treatments. The false discovery rate is a way to correct for multiple comparisons
+without sacrificing too much statistical power. See `?p.adjust` and references
+therein.
 
-```r
-# P-value for "Mold visits > Control visits"
-mean(posterior_samples[, "Control"] > posterior_samples[, "Natural Mold"])
-```
-
-```
-## [1] 0.010143
-```
-
-```r
-# P-value for "Mold + Insecticide visits < Mold visits"
-mean(posterior_samples[, "Natural Mold + Insecticide"] > posterior_samples[, "Natural Mold"])
-```
-
-```
-## [1] 0.017251
-```
 
 ```r
-# P-value for "Sugar+Paint visits < Sugar visits" (not significant)
-mean(posterior_samples[,"Sugar + Black Paint"] > posterior_samples[,"Sugar"])
+table %>% filter((V1 == "Sugar" & V2 == "Natural Mold") |
+                   (V1 == "Natural Mold" & V2 == "Control") |
+                   (V1 == "Natural Mold" &  V2 == "Natural Mold + Insecticide") |
+                   (V1 == "Sugar" & V2 == "Sugar + Black Paint")) %>% 
+  knitr::kable(digits = 3)
 ```
 
-```
-## [1] 0.151
+
+
+V1             V2                                P   False Discovery Rate
+-------------  ---------------------------  ------  ---------------------
+Sugar          Sugar + Black Paint           0.305                  0.399
+Sugar          Natural Mold                  0.002                  0.004
+Natural Mold   Natural Mold + Insecticide    0.035                  0.057
+Natural Mold   Control                       0.020                  0.039
+
+
+Significance and False Discovery Rates for all pairwise comparisons among
+experimental treatments.
+
+
+```r
+table %>% 
+  knitr::kable(digits = 3)
 ```
 
-# Comparing to a model with environmental predictors & continuous date
+
+
+V1                           V2                                P   False Discovery Rate
+---------------------------  ---------------------------  ------  ---------------------
+Sugar                        Sugar + Black Paint           0.305                  0.399
+Sugar                        Natural Mold                  0.002                  0.004
+Sugar                        Insecticide                   0.000                  0.000
+Sugar                        Natural Mold + Insecticide    0.000                  0.000
+Sugar                        Control                       0.000                  0.000
+Sugar                        Black Paint                   0.000                  0.000
+Sugar + Black Paint          Natural Mold                  0.029                  0.052
+Sugar + Black Paint          Insecticide                   0.000                  0.001
+Sugar + Black Paint          Natural Mold + Insecticide    0.000                  0.000
+Sugar + Black Paint          Control                       0.000                  0.000
+Sugar + Black Paint          Black Paint                   0.000                  0.000
+Natural Mold                 Insecticide                   0.133                  0.186
+Natural Mold                 Natural Mold + Insecticide    0.035                  0.057
+Natural Mold                 Control                       0.020                  0.039
+Natural Mold                 Black Paint                   0.003                  0.007
+Insecticide                  Natural Mold + Insecticide    0.521                  0.547
+Insecticide                  Control                       0.386                  0.450
+Insecticide                  Black Paint                   0.110                  0.165
+Natural Mold + Insecticide   Control                       0.820                  0.820
+Natural Mold + Insecticide   Black Paint                   0.323                  0.399
+Control                      Black Paint                   0.441                  0.488
+
+
+
+# Comparing to a model with environmental predictors & continuous dates
 
 We could have obtained essentially the same results with a much larger model that 
 included a fixed effect for date and environmental conditions (i.e., there would
@@ -443,11 +495,12 @@ them outide of this section.
 
 
 ```r
+# rescaling variables that have large values using `scale` improves numerical 
+# accuracy, but will not affect AIC.
 Honeydew_env = glmer.nb(Bee_Count ~ Mold * Insecticide + 
                           Sugar * Paint + 
-                          scale(min_day) + 
                           Site + 
-                          scale(min_day) + 
+                          hours_noon + 
                           scale(Temp_F) + 
                           scale(Wind_mph) + 
                           Conditions + 
@@ -466,10 +519,10 @@ print(summary(Honeydew_env), correlation = FALSE)
 ##   Approximation) [glmerMod]
 ##  Family: Negative Binomial(2.1074)  ( log )
 ## Formula: 
-## Bee_Count ~ Mold * Insecticide + Sugar * Paint + scale(min_day) +  
-##     Site + scale(min_day) + scale(Temp_F) + scale(Wind_mph) +  
-##     Conditions + scale(Barometric) + scale(Humidity) + scale(julDate) +  
-##     (1 | Plant_Code) + (1 | julDate)
+## Bee_Count ~ Mold * Insecticide + Sugar * Paint + Site + hours_noon +  
+##     scale(Temp_F) + scale(Wind_mph) + Conditions + scale(Barometric) +  
+##     scale(Humidity) + scale(julDate) + (1 | Plant_Code) + (1 |  
+##     julDate)
 ##    Data: d
 ## Control: control
 ## 
@@ -488,43 +541,43 @@ print(summary(Honeydew_env), correlation = FALSE)
 ## 
 ## Fixed effects:
 ##                                        Estimate Std. Error z value
-## (Intercept)                            -1.94570    0.69952  -2.781
-## Mold                                    1.17431    0.50501   2.325
-## Insecticide                             0.42923    0.53528   0.802
-## Sugar                                   2.39457    0.47917   4.997
-## Paint                                  -0.61127    0.61236  -0.998
-## scale(min_day)                          0.01771    0.15687   0.113
-## SiteB                                   0.73399    0.57844   1.269
+## (Intercept)                            -1.95538    0.72181  -2.709
+## Mold                                    1.17430    0.50503   2.325
+## Insecticide                             0.42923    0.53530   0.802
+## Sugar                                   2.39457    0.47918   4.997
+## Paint                                  -0.61127    0.61237  -0.998
+## SiteB                                   0.73398    0.57844   1.269
 ## SiteC                                   0.50101    0.53278   0.940
+## hours_noon                              0.01093    0.09681   0.113
 ## scale(Temp_F)                           0.22330    0.18097   1.234
 ## scale(Wind_mph)                         0.19258    0.12820   1.502
 ## ConditionsCompletly Cloudy (no Shadow)  0.39652    0.55278   0.717
-## ConditionsFull Sun                     -0.65723    0.55214  -1.190
+## ConditionsFull Sun                     -0.65723    0.55215  -1.190
 ## ConditionsPartly Cloudy (>50% sun)      0.23767    0.44193   0.538
 ## scale(Barometric)                      -0.34483    0.17986  -1.917
 ## scale(Humidity)                        -0.03533    0.19502  -0.181
 ## scale(julDate)                         -0.13315    0.16300  -0.817
-## Mold:Insecticide                       -1.47040    0.73221  -2.008
-## Sugar:Paint                             0.29472    0.71951   0.410
+## Mold:Insecticide                       -1.47040    0.73224  -2.008
+## Sugar:Paint                             0.29472    0.71953   0.410
 ##                                        Pr(>|z|)    
-## (Intercept)                             0.00541 ** 
+## (Intercept)                             0.00675 ** 
 ## Mold                                    0.02006 *  
-## Insecticide                             0.42262    
-## Sugar                                  5.81e-07 ***
-## Paint                                   0.31817    
-## scale(min_day)                          0.91013    
+## Insecticide                             0.42265    
+## Sugar                                  5.82e-07 ***
+## Paint                                   0.31818    
 ## SiteB                                   0.20448    
 ## SiteC                                   0.34703    
+## hours_noon                              0.91013    
 ## scale(Temp_F)                           0.21724    
 ## scale(Wind_mph)                         0.13304    
 ## ConditionsCompletly Cloudy (no Shadow)  0.47318    
-## ConditionsFull Sun                      0.23391    
+## ConditionsFull Sun                      0.23392    
 ## ConditionsPartly Cloudy (>50% sun)      0.59072    
 ## scale(Barometric)                       0.05521 .  
 ## scale(Humidity)                         0.85623    
-## scale(julDate)                          0.41397    
-## Mold:Insecticide                        0.04462 *  
-## Sugar:Paint                             0.68209    
+## scale(julDate)                          0.41398    
+## Mold:Insecticide                        0.04463 *  
+## Sugar:Paint                             0.68210    
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
@@ -536,12 +589,12 @@ anova(Honeydew, Honeydew_env)
 ```
 ## Data: d
 ## Models:
-## Honeydew: Bee_Count ~ Mold * Insecticide + Sugar * Paint + scale(min_day) + 
+## Honeydew: Bee_Count ~ Mold * Insecticide + Sugar * Paint + hours_noon + 
 ## Honeydew:     Site + (1 | Plant_Code) + (1 | julDate)
-## Honeydew_env: Bee_Count ~ Mold * Insecticide + Sugar * Paint + scale(min_day) + 
-## Honeydew_env:     Site + scale(min_day) + scale(Temp_F) + scale(Wind_mph) + 
-## Honeydew_env:     Conditions + scale(Barometric) + scale(Humidity) + scale(julDate) + 
-## Honeydew_env:     (1 | Plant_Code) + (1 | julDate)
+## Honeydew_env: Bee_Count ~ Mold * Insecticide + Sugar * Paint + Site + hours_noon + 
+## Honeydew_env:     scale(Temp_F) + scale(Wind_mph) + Conditions + scale(Barometric) + 
+## Honeydew_env:     scale(Humidity) + scale(julDate) + (1 | Plant_Code) + (1 | 
+## Honeydew_env:     julDate)
 ##              Df    AIC    BIC  logLik deviance Chisq Chi Df Pr(>Chisq)
 ## Honeydew     13 785.62 836.77 -379.81   759.62                        
 ## Honeydew_env 21 791.70 874.34 -374.85   749.70 9.915      8      0.271
