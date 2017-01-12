@@ -1,18 +1,16 @@
 ---
 title: "Appendix for 'Bees Without Flowers'"
-output: 
-  html_document:
-    keep_md: true
-    toc: true
-    number_sections: true
+output:
+  word_document:
+    toc: yes
   pdf_document:
-    toc: true
-    number_sections: true
+    number_sections: yes
+    toc: yes
 ---
 
-# Set up the workspace
+# Preliminaries
 
-```{r, message=FALSE}
+```{r, message=FALSE, fig.height=5, fig.width=5, dev="png", dpi=300}
 set.seed(1)
 library(lme4)      # For model fitting
 library(tidyverse) # For data processing
@@ -21,7 +19,31 @@ library(mvtnorm)   # for multivariate Gaussians
 # hours_noon represents the amount of time since noon (or until noon, if
 # the value is negative)
 d = read.csv("Meiners_BeeHoneydew_data.csv") %>% 
-  mutate(hours_noon = min_day / 60 - 12)
+  mutate(hours_noon = min_day / 60 - 12) %>% 
+  mutate(treatment_class = 1 + Sugar + 2 * Mold -2 * (Mold * Insecticide)) %>% 
+  mutate(treatment_class = factor(treatment_class, 
+                                  labels = c("Neither", "Sugar", "Untreated Mold"))) %>% 
+  mutate(treatment_class = forcats::fct_relevel(treatment_class,
+                                                c("Sugar", "Untreated Mold")))
+
+
+
+d %>% 
+  group_by(Plant_Code, treatment_class) %>% 
+  summarize(bees = sum(Bee_Count)) %>% 
+  ggplot(aes(x = bees, fill = treatment_class)) + 
+  geom_histogram(binwidth = 1, color = "black") + 
+  cowplot::theme_cowplot() + 
+  scale_fill_brewer(type = "qual", palette = 3) + 
+  coord_cartesian(expand = FALSE, xlim = c(-.5, 30)) + 
+  ggtitle("Total bees per plant")
+
+d %>% 
+  group_by(Plant_Code, treatment_class) %>% 
+  summarize(bees = sum(Bee_Count)) %>% 
+  group_by(treatment_class) %>% 
+  summarize(mean(bees))
+
 ```
 
 # Core model formulas
@@ -183,7 +205,7 @@ treat_names = c("Natural Mold", "Natural Mold + Insecticide", "Control",
 # following conditions:
 #   * Treatments as specified above
 #   * Time of day is noon
-#   * Site A (i.e. SiteB and SiteC are 0)
+#   * Site A (i.e. SiteB's effect and SiteC's effect are 0)
 #   * "Typical" plant and "typical" date (random effects set to 0)
 newdata = cbind(
   `(Intercept)` = 1,
@@ -263,35 +285,59 @@ plot_data %>%
 
 ```
 
-# Post-hoc comparisons between specific treatment pairs
+# Post-hoc comparisons among treatment pairs
 
 ```{r}
+
 names = names(sort(colMeans(posterior_samples), decreasing = TRUE))
 grid = combn(names, 2) %>% t() %>% as.data.frame(stringsAsFactors = FALSE)
+grid$lower = NA
+grid$mean = NA
+grid$upper = NA
 grid$P = NA
 for (i in 1:nrow(grid)) {
   # One-sided P-values
   p = mean(posterior_samples[ , grid[[1]][i]] > posterior_samples[ , grid[[2]][i]])
-  
-  # Two-sided P-values
+  ratios = exp(posterior_samples[ , grid[[1]][i]] - posterior_samples[ , grid[[2]][i]])
+  # Two-sided P-values based on Monte Carlo samples
   grid$P[i] = 1 - 2 * abs(0.5 - p)
+  grid$lower[i] = quantile(ratios, .025)
+  grid$mean[i] = mean(ratios)
+  grid$upper[i] = quantile(ratios, .975)
+
 }
 
+my_format = function(x, d){format(x, digits = d, trim = TRUE)}
 table = grid %>% 
-  mutate(`False Discovery Rate` = p.adjust(P, method = "fdr")) 
+  mutate(`False Discovery Rate` = p.adjust(P, method = "fdr")) %>% 
+  cbind(ratio = paste0(my_format(.$mean, 3), 
+                               " (", 
+                               my_format(.$lower, 2), 
+                               "-", 
+                               my_format(.$upper, 3), 
+                               ")")) %>% 
+  select(V1, V2, ratio, P, `False Discovery Rate`)
 ```
 
 Significance and False Discovery Rates for selected post-hoc comparisons between
 treatments. The false discovery rate is a way to correct for multiple comparisons
 without sacrificing too much statistical power. See `?p.adjust` and references
-therein.
+therein. The treatment with the larger expected visitation rate is listed
+in the left column of each row.
 
 ```{r}
-table %>% filter((V1 == "Sugar" & V2 == "Natural Mold") |
-                   (V1 == "Natural Mold" & V2 == "Control") |
-                   (V1 == "Natural Mold" &  V2 == "Natural Mold + Insecticide") |
-                   (V1 == "Sugar" & V2 == "Sugar + Black Paint")) %>% 
-  knitr::kable(digits = 3)
+table_subset = table %>% 
+  filter(
+    (V1 == "Sugar" & V2 == "Control") |
+      (V1 == "Sugar" & V2 == "Natural Mold") |
+      (V1 == "Natural Mold" & V2 == "Control") |
+      (V1 == "Natural Mold" &  V2 == "Natural Mold + Insecticide") |
+      (V1 == "Natural Mold + Insecticide" &  V2 == "Control") | 
+      (V1 == "Insecticide" &  V2 == "Control") | 
+      (V1 == "Sugar" & V2 == "Sugar + Black Paint")
+  )
+table_subset %>% 
+  knitr::kable(digits = 2)
 ```
 
 
@@ -300,7 +346,7 @@ experimental treatments.
 
 ```{r}
 table %>% 
-  knitr::kable(digits = 3)
+  knitr::kable(digits = 2)
 ```
 
 

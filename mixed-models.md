@@ -404,15 +404,20 @@ plot_data %>%
 
 
 ```r
+Z = function(x){mean(x) / sd(x)}
+
 names = names(sort(colMeans(posterior_samples), decreasing = TRUE))
 grid = combn(names, 2) %>% t() %>% as.data.frame(stringsAsFactors = FALSE)
+grid$Z = NA
 grid$P = NA
 for (i in 1:nrow(grid)) {
   # One-sided P-values
   p = mean(posterior_samples[ , grid[[1]][i]] > posterior_samples[ , grid[[2]][i]])
   
-  # Two-sided P-values
+  # Two-sided P-values based on Monte Carlo samples
   grid$P[i] = 1 - 2 * abs(0.5 - p)
+  
+  grid$Z[i] = Z(posterior_samples[ , grid[[1]][i]] - posterior_samples[ , grid[[2]][i]])
 }
 
 table = grid %>% 
@@ -422,7 +427,8 @@ table = grid %>%
 Significance and False Discovery Rates for selected post-hoc comparisons between
 treatments. The false discovery rate is a way to correct for multiple comparisons
 without sacrificing too much statistical power. See `?p.adjust` and references
-therein.
+therein. The treatment with the larger expected visitation rate is listed
+in the left column of each row.
 
 
 ```r
@@ -430,17 +436,17 @@ table %>% filter((V1 == "Sugar" & V2 == "Natural Mold") |
                    (V1 == "Natural Mold" & V2 == "Control") |
                    (V1 == "Natural Mold" &  V2 == "Natural Mold + Insecticide") |
                    (V1 == "Sugar" & V2 == "Sugar + Black Paint")) %>% 
-  knitr::kable(digits = 3)
+  knitr::kable(digits = 2)
 ```
 
 
 
-V1             V2                                P   False Discovery Rate
--------------  ---------------------------  ------  ---------------------
-Sugar          Sugar + Black Paint           0.305                  0.399
-Sugar          Natural Mold                  0.002                  0.004
-Natural Mold   Natural Mold + Insecticide    0.035                  0.057
-Natural Mold   Control                       0.020                  0.039
+V1             V2                               Z      P   False Discovery Rate
+-------------  ---------------------------  -----  -----  ---------------------
+Sugar          Sugar + Black Paint           1.03   0.30                   0.40
+Sugar          Natural Mold                  3.14   0.00                   0.00
+Natural Mold   Natural Mold + Insecticide    2.11   0.04                   0.06
+Natural Mold   Control                       2.32   0.02                   0.04
 
 
 Significance and False Discovery Rates for all pairwise comparisons among
@@ -449,34 +455,34 @@ experimental treatments.
 
 ```r
 table %>% 
-  knitr::kable(digits = 3)
+  knitr::kable(digits = 2)
 ```
 
 
 
-V1                           V2                                P   False Discovery Rate
----------------------------  ---------------------------  ------  ---------------------
-Sugar                        Sugar + Black Paint           0.305                  0.399
-Sugar                        Natural Mold                  0.002                  0.004
-Sugar                        Insecticide                   0.000                  0.000
-Sugar                        Natural Mold + Insecticide    0.000                  0.000
-Sugar                        Control                       0.000                  0.000
-Sugar                        Black Paint                   0.000                  0.000
-Sugar + Black Paint          Natural Mold                  0.029                  0.052
-Sugar + Black Paint          Insecticide                   0.000                  0.001
-Sugar + Black Paint          Natural Mold + Insecticide    0.000                  0.000
-Sugar + Black Paint          Control                       0.000                  0.000
-Sugar + Black Paint          Black Paint                   0.000                  0.000
-Natural Mold                 Insecticide                   0.133                  0.186
-Natural Mold                 Natural Mold + Insecticide    0.035                  0.057
-Natural Mold                 Control                       0.020                  0.039
-Natural Mold                 Black Paint                   0.003                  0.007
-Insecticide                  Natural Mold + Insecticide    0.521                  0.547
-Insecticide                  Control                       0.386                  0.450
-Insecticide                  Black Paint                   0.110                  0.165
-Natural Mold + Insecticide   Control                       0.820                  0.820
-Natural Mold + Insecticide   Black Paint                   0.323                  0.399
-Control                      Black Paint                   0.441                  0.488
+V1                           V2                               Z      P   False Discovery Rate
+---------------------------  ---------------------------  -----  -----  ---------------------
+Sugar                        Sugar + Black Paint           1.03   0.30                   0.40
+Sugar                        Natural Mold                  3.14   0.00                   0.00
+Sugar                        Insecticide                   4.48   0.00                   0.00
+Sugar                        Natural Mold + Insecticide    4.96   0.00                   0.00
+Sugar                        Control                       5.10   0.00                   0.00
+Sugar                        Black Paint                   5.45   0.00                   0.00
+Sugar + Black Paint          Natural Mold                  2.18   0.03                   0.05
+Sugar + Black Paint          Insecticide                   3.58   0.00                   0.00
+Sugar + Black Paint          Natural Mold + Insecticide    4.10   0.00                   0.00
+Sugar + Black Paint          Control                       4.27   0.00                   0.00
+Sugar + Black Paint          Black Paint                   4.71   0.00                   0.00
+Natural Mold                 Insecticide                   1.50   0.13                   0.19
+Natural Mold                 Natural Mold + Insecticide    2.11   0.04                   0.06
+Natural Mold                 Control                       2.32   0.02                   0.04
+Natural Mold                 Black Paint                   2.95   0.00                   0.01
+Insecticide                  Natural Mold + Insecticide    0.64   0.52                   0.55
+Insecticide                  Control                       0.87   0.39                   0.45
+Insecticide                  Black Paint                   1.60   0.11                   0.17
+Natural Mold + Insecticide   Control                       0.23   0.82                   0.82
+Natural Mold + Insecticide   Black Paint                   0.99   0.32                   0.40
+Control                      Black Paint                   0.77   0.44                   0.49
 
 
 
