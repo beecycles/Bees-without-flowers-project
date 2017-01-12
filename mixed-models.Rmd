@@ -1,24 +1,50 @@
 ---
 title: "Appendix for 'Bees Without Flowers'"
-output: 
-  pdf_document:
-    toc: true
-    number_sections: true
-  html_document:
+output:
+  word_document:
+    toc: yes
     keep_md: true
-    toc: true
-    number_sections: true
+  pdf_document:
+    number_sections: yes
+    toc: yes
 ---
 
-# Set up the workspace
+# Preliminaries
 
-```{r, message=FALSE}
+```{r, message=FALSE, fig.height=5, fig.width=5, dev="png", dpi=300}
 set.seed(1)
 library(lme4)      # For model fitting
-library(tidyverse)
-library(mixtools)  # For bivariate Gaussian ellipses
+library(tidyverse) # For data processing
+library(mvtnorm)   # for multivariate Gaussians
 
-d = read.csv("Meiners_BeeHoneydew_data.csv")
+# hours_noon represents the amount of time since noon (or until noon, if
+# the value is negative)
+d = read.csv("Meiners_BeeHoneydew_data.csv") %>% 
+  mutate(hours_noon = min_day / 60 - 12) %>% 
+  mutate(treatment_class = 1 + Sugar + 2 * Mold -2 * (Mold * Insecticide)) %>% 
+  mutate(treatment_class = factor(treatment_class, 
+                                  labels = c("Neither", "Sugar", "Untreated Mold"))) %>% 
+  mutate(treatment_class = forcats::fct_relevel(treatment_class,
+                                                c("Sugar", "Untreated Mold")))
+
+
+
+d %>% 
+  group_by(Plant_Code, treatment_class) %>% 
+  summarize(bees = sum(Bee_Count)) %>% 
+  ggplot(aes(x = bees, fill = treatment_class)) + 
+  geom_histogram(binwidth = 1, color = "black") + 
+  cowplot::theme_cowplot() + 
+  scale_fill_brewer(type = "qual", palette = 3) + 
+  coord_cartesian(expand = FALSE, xlim = c(-.5, 30)) + 
+  ggtitle("Total bees per plant")
+
+d %>% 
+  group_by(Plant_Code, treatment_class) %>% 
+  summarize(bees = sum(Bee_Count)) %>% 
+  group_by(treatment_class) %>% 
+  summarize(mean(bees))
+
 ```
 
 # Core model formulas
@@ -27,7 +53,9 @@ We will be focusing on models that include fixed effect for the experimental
 manipulations and for site, as well as a continuous time-of-day variable to 
 capture variation in bee activity associated with diurnal patterns.
 We modeled variation among days (e.g. due to differences in recent weather 
-events) and among individual plants using random effects.
+events) and among individual plants using random effects. Because the number
+of sites (3) was too small to estimate site-to-site variance, we treated `Site` 
+as a fixed effect.
 
 While additional variables were recorded during sampling, their primary purpose
 was to keep the sampling effort focused on a narrow range of environmental 
@@ -43,7 +71,7 @@ terms of $\chi^2$ or AIC.
 ```{r}
 raw_formula = "Bee_Count ~ Mold * Insecticide + 
                            Sugar * Paint + 
-                           scale(min_day) + 
+                           hours_noon + 
                            Site +
                            (1|Plant_Code) + 
                            (1|julDate)"
@@ -137,7 +165,7 @@ had any appreciable AIC weight, nor did the model that removed all sugar effects
 
 ```{r}
 # Sort, calculate DeltaAIC & AIC weights, format for printing with 
-# reasonable precision
+# reasonable precision using knitr's `kable` function for tables.
 initial_dropped_df %>% 
   arrange(AIC) %>% 
   mutate(`$\\Delta$AIC` = AIC - AIC[1]) %>% 
@@ -162,7 +190,7 @@ summary(Honeydew, correlation = FALSE)
 anova(Honeydew)
 ```
 
-# Code for Figure 3
+# Monte Carlo comparison of treatment effects
 
 ```{r, fig.height=6, fig.width=6, dev="png", dpi=300}
 # Indicator for, "was experimental manipulation i applied to treatment j?""
@@ -174,13 +202,19 @@ Paint =       c(0, 0, 0, 0, 1, 0, 1)
 treat_names = c("Natural Mold", "Natural Mold + Insecticide", "Control", 
                 "Insecticide", "Black Paint", "Sugar", "Sugar + Black Paint")
 
+# Ask the model about expected visitation rates under the
+# following conditions:
+#   * Treatments as specified above
+#   * Time of day is noon
+#   * Site A (i.e. SiteB's effect and SiteC's effect are 0)
+#   * "Typical" plant and "typical" date (random effects set to 0)
 newdata = cbind(
   `(Intercept)` = 1,
   Mold = Mold,
   Insecticide = Insecticide,
   Sugar = Sugar,
   Paint = Paint,
-  `scale(min_day)` = 0,
+  hours_noon = 0,
   SiteB = 0,
   SiteC = 0,
   `Mold:Insecticide` = Mold * Insecticide,
@@ -195,17 +229,17 @@ parameter_mu = fixef(Honeydew)
 parameter_sigma = as.matrix(vcov(Honeydew))
 
 # Generate Monte Carlo samples from lme4's approximate likelihood surface
-posterior_samples = MASS::mvrnorm(1E6, parameter_mu, parameter_sigma) %*% t(newdata)
-
+posterior_samples = rmvnorm(1E6, parameter_mu, parameter_sigma) %*%
+  t(newdata)
 
 mu = colMeans(posterior_samples)
 
 # Density of bivariate normal between Control and a named treatment
 bivariate_normal_control_density = function(x, name){
   names = c("Control", name)
-  mvtnorm::dmvnorm(x, 
-                   mu[names], 
-                   cov(posterior_samples)[names, names])
+  dmvnorm(x, 
+          mu[names], 
+          cov(posterior_samples)[names, names])
 }
 
 label_df = data.frame(
@@ -217,7 +251,8 @@ line_df = data.frame(x = log(.025), y = log(.02),
                      label = "Treatment = Control")
 
 # for each set of x and y values, calculate bivariate densities,
-# then tidy up the results for ggplot
+# then tidy up the results for ggplot (with an optional `theme` for
+# improved visual display)
 plot_data = expand.grid(x = seq(log(.01), log(1), length = 250), 
             y = seq(log(.01), log(6), length = 250)) %>% 
   mutate(Sugar = bivariate_normal_control_density(., "Sugar"),
@@ -251,23 +286,73 @@ plot_data %>%
 
 ```
 
-# Post-hoc comparisons between specific treatment pairs
+# Post-hoc comparisons among treatment pairs
 
 ```{r}
-# P-value for "Sugar visits > Mold visits"
-mean(posterior_samples[, "Natural Mold"] > posterior_samples[, "Sugar"])
 
-# P-value for "Mold visits > Control visits"
-mean(posterior_samples[, "Control"] > posterior_samples[, "Natural Mold"])
+names = names(sort(colMeans(posterior_samples), decreasing = TRUE))
+grid = combn(names, 2) %>% t() %>% as.data.frame(stringsAsFactors = FALSE)
+grid$lower = NA
+grid$mean = NA
+grid$upper = NA
+grid$P = NA
+for (i in 1:nrow(grid)) {
+  # One-sided P-values
+  p = mean(posterior_samples[ , grid[[1]][i]] > posterior_samples[ , grid[[2]][i]])
+  ratios = exp(posterior_samples[ , grid[[1]][i]] - posterior_samples[ , grid[[2]][i]])
+  # Two-sided P-values based on Monte Carlo samples
+  grid$P[i] = 1 - 2 * abs(0.5 - p)
+  grid$lower[i] = quantile(ratios, .025)
+  grid$mean[i] = mean(ratios)
+  grid$upper[i] = quantile(ratios, .975)
 
-# P-value for "Mold + Insecticide visits < Mold visits"
-mean(posterior_samples[, "Natural Mold + Insecticide"] > posterior_samples[, "Natural Mold"])
+}
 
-# P-value for "Sugar+Paint visits < Sugar visits" (not significant)
-mean(posterior_samples[,"Sugar + Black Paint"] > posterior_samples[,"Sugar"])
+my_format = function(x, d){format(x, digits = d, trim = TRUE)}
+table = grid %>% 
+  mutate(`False Discovery Rate` = p.adjust(P, method = "fdr")) %>% 
+  cbind(ratio = paste0(my_format(.$mean, 3), 
+                               " (", 
+                               my_format(.$lower, 2), 
+                               "-", 
+                               my_format(.$upper, 3), 
+                               ")")) %>% 
+  select(V1, V2, ratio, P, `False Discovery Rate`)
 ```
 
-# Comparing to a model with environmental predictors & continuous date
+Significance and False Discovery Rates for selected post-hoc comparisons between
+treatments. The false discovery rate is a way to correct for multiple comparisons
+without sacrificing too much statistical power. See `?p.adjust` and references
+therein. The treatment with the larger expected visitation rate is listed
+in the left column of each row.
+
+```{r}
+table_subset = table %>% 
+  filter(
+    (V1 == "Sugar" & V2 == "Control") |
+      (V1 == "Sugar" & V2 == "Natural Mold") |
+      (V1 == "Natural Mold" & V2 == "Control") |
+      (V1 == "Natural Mold" &  V2 == "Natural Mold + Insecticide") |
+      (V1 == "Natural Mold + Insecticide" &  V2 == "Control") | 
+      (V1 == "Insecticide" &  V2 == "Control") | 
+      (V1 == "Sugar" & V2 == "Sugar + Black Paint")
+  )
+table_subset %>% 
+  knitr::kable(digits = 2)
+```
+
+
+Significance and False Discovery Rates for all pairwise comparisons among
+experimental treatments.
+
+```{r}
+table %>% 
+  knitr::kable(digits = 2)
+```
+
+
+
+# Comparing to a model with environmental predictors & continuous dates
 
 We could have obtained essentially the same results with a much larger model that 
 included a fixed effect for date and environmental conditions (i.e., there would
@@ -281,11 +366,12 @@ justify the additional complexity ($\chi^2$ > 0.25, higher AIC), so we disregard
 them outide of this section.
 
 ```{r, cache = TRUE}
+# rescaling variables that have large values using `scale` improves numerical 
+# accuracy, but will not affect AIC.
 Honeydew_env = glmer.nb(Bee_Count ~ Mold * Insecticide + 
                           Sugar * Paint + 
-                          scale(min_day) + 
                           Site + 
-                          scale(min_day) + 
+                          hours_noon + 
                           scale(Temp_F) + 
                           scale(Wind_mph) + 
                           Conditions + 
