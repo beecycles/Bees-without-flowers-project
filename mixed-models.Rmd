@@ -3,6 +3,7 @@ title: "Appendix for 'Bees Without Flowers'"
 output:
   word_document:
     toc: yes
+    keep_md: true
   pdf_document:
     number_sections: yes
     toc: yes
