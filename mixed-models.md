@@ -1,4 +1,4 @@
-# Appendix for 'Bees Without Flowers'
+# Appendix B for 'Bees Without Flowers'
 
 # Preliminaries
 
@@ -13,18 +13,18 @@ library(mvtnorm)   # for multivariate Gaussians
 # the value is negative)
 d = read.csv("Meiners_BeeHoneydew_data.csv") %>% 
   mutate(hours_noon = min_day / 60 - 12) %>% 
-  mutate(treatment_class = 1 + Sugar + 2 * Mold -2 * (Mold * Insecticide)) %>% 
-  mutate(treatment_class = factor(treatment_class, 
+  mutate(`Treatment class` = 1 + Sugar + 2 * Mold - 2 * (Mold * Insecticide)) %>% 
+  mutate(`Treatment class` = factor(`Treatment class`, 
                                   labels = c("Neither", "Sugar", "Untreated Mold"))) %>% 
-  mutate(treatment_class = forcats::fct_relevel(treatment_class,
+  mutate(`Treatment class` = forcats::fct_relevel(`Treatment class`,
                                                 c("Sugar", "Untreated Mold")))
 
 
 
 d %>% 
-  group_by(Plant_Code, treatment_class) %>% 
+  group_by(Plant_Code, `Treatment class`) %>% 
   summarize(bees = sum(Bee_Count)) %>% 
-  ggplot(aes(x = bees, fill = treatment_class)) + 
+  ggplot(aes(x = bees, fill = `Treatment class`)) + 
   geom_histogram(binwidth = 1, color = "black") + 
   cowplot::theme_cowplot() + 
   scale_fill_brewer(type = "qual", palette = 3) + 
@@ -36,19 +36,19 @@ d %>%
 
 ```r
 d %>% 
-  group_by(Plant_Code, treatment_class) %>% 
+  group_by(Plant_Code, `Treatment class`) %>% 
   summarize(bees = sum(Bee_Count)) %>% 
-  group_by(treatment_class) %>% 
+  group_by(`Treatment class`) %>% 
   summarize(mean(bees))
 ```
 
 ```
 ## # A tibble: 3 × 2
-##   treatment_class `mean(bees)`
-##            <fctr>        <dbl>
-## 1           Sugar    12.222222
-## 2  Untreated Mold     4.555556
-## 3         Neither     1.305556
+##   `Treatment class` `mean(bees)`
+##              <fctr>        <dbl>
+## 1             Sugar    12.222222
+## 2    Untreated Mold     4.555556
+## 3           Neither     1.305556
 ```
 
 # Core model formulas

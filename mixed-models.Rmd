@@ -1,5 +1,5 @@
 ---
-title: "Appendix for 'Bees Without Flowers'"
+title: "Appendix B for 'Bees Without Flowers'"
 output:
   word_document:
     toc: yes
@@ -11,7 +11,7 @@ output:
 
 # Preliminaries
 
-```{r, message=FALSE, fig.height=5, fig.width=5, dev="png", dpi=300}
+```{r, message=FALSE, fig.height=4, fig.width=6, dev="png", dpi=300}
 set.seed(1)
 library(lme4)      # For model fitting
 library(tidyverse) # For data processing
@@ -21,18 +21,18 @@ library(mvtnorm)   # for multivariate Gaussians
 # the value is negative)
 d = read.csv("Meiners_BeeHoneydew_data.csv") %>% 
   mutate(hours_noon = min_day / 60 - 12) %>% 
-  mutate(treatment_class = 1 + Sugar + 2 * Mold -2 * (Mold * Insecticide)) %>% 
-  mutate(treatment_class = factor(treatment_class, 
+  mutate(`Treatment class` = 1 + Sugar + 2 * Mold - 2 * (Mold * Insecticide)) %>% 
+  mutate(`Treatment class` = factor(`Treatment class`, 
                                   labels = c("Neither", "Sugar", "Untreated Mold"))) %>% 
-  mutate(treatment_class = forcats::fct_relevel(treatment_class,
+  mutate(`Treatment class` = forcats::fct_relevel(`Treatment class`,
                                                 c("Sugar", "Untreated Mold")))
 
 
 
 d %>% 
-  group_by(Plant_Code, treatment_class) %>% 
+  group_by(Plant_Code, `Treatment class`) %>% 
   summarize(bees = sum(Bee_Count)) %>% 
-  ggplot(aes(x = bees, fill = treatment_class)) + 
+  ggplot(aes(x = bees, fill = `Treatment class`)) + 
   geom_histogram(binwidth = 1, color = "black") + 
   cowplot::theme_cowplot() + 
   scale_fill_brewer(type = "qual", palette = 3) + 
@@ -40,9 +40,9 @@ d %>%
   ggtitle("Total bees per plant")
 
 d %>% 
-  group_by(Plant_Code, treatment_class) %>% 
+  group_by(Plant_Code, `Treatment class`) %>% 
   summarize(bees = sum(Bee_Count)) %>% 
-  group_by(treatment_class) %>% 
+  group_by(`Treatment class`) %>% 
   summarize(mean(bees))
 
 ```
