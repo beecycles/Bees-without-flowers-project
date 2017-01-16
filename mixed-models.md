@@ -15,26 +15,31 @@ d = read.csv("Meiners_BeeHoneydew_data.csv") %>%
   mutate(hours_noon = min_day / 60 - 12) %>% 
   mutate(`Treatment class` = 1 + Sugar + 2 * Mold - 2 * (Mold * Insecticide)) %>% 
   mutate(`Treatment class` = factor(`Treatment class`, 
-                                  labels = c("Neither", "Sugar", "Untreated Mold"))) %>% 
+                                  labels = c("Neither", "Sugar", "Untreated mold"))) %>% 
   mutate(`Treatment class` = forcats::fct_relevel(`Treatment class`,
-                                                c("Sugar", "Untreated Mold")))
+                                                c("Sugar", "Untreated mold")))
+```
+
+Figure 3(a) and summary statistics
 
 
-
-d %>% 
+```r
+# colors from ColorBrewer's PuOr palette; should be safe for grayscale
+# and for colorblind readers. 
+colors = c("#F1A340", "#F7F7F7", "#998EC3")[c(1, 3, 2)]
+plot = d %>% 
   group_by(Plant_Code, `Treatment class`) %>% 
   summarize(bees = sum(Bee_Count)) %>% 
   ggplot(aes(x = bees, fill = `Treatment class`)) + 
   geom_histogram(binwidth = 1, color = "black") + 
   cowplot::theme_cowplot() + 
-  scale_fill_brewer(type = "qual", palette = 3) + 
+  scale_fill_manual(values = colors) + 
   coord_cartesian(expand = FALSE, xlim = c(-.5, 30)) + 
-  ggtitle("Total bees per plant")
-```
+  xlab("Bee count per plant") + 
+  ylab("Frequency")
 
-![](mixed-models_files/figure-docx/unnamed-chunk-1-1.png)<!-- -->
+ggsave("histogram3A.png", height = 3, width = 9, dpi = 300)
 
-```r
 d %>% 
   group_by(Plant_Code, `Treatment class`) %>% 
   summarize(bees = sum(Bee_Count)) %>% 
@@ -47,7 +52,7 @@ d %>%
 ##   `Treatment class` `mean(bees)`
 ##              <fctr>        <dbl>
 ## 1             Sugar    12.222222
-## 2    Untreated Mold     4.555556
+## 2    Untreated mold     4.555556
 ## 3           Neither     1.305556
 ```
 
@@ -434,7 +439,7 @@ plot_data %>%
             inherit.aes = FALSE, hjust = "left")
 ```
 
-![](mixed-models_files/figure-docx/unnamed-chunk-9-1.png)<!-- -->
+![](mixed-models_files/figure-docx/unnamed-chunk-10-1.png)<!-- -->
 
 # Post-hoc comparisons among treatment pairs
 
