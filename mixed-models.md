@@ -38,7 +38,7 @@ plot = d %>%
   xlab("Bee count per plant") + 
   ylab("Frequency")
 
-ggsave("histogram3A.png", height = 3, width = 9, dpi = 300)
+ggsave("histogram3A.png", height = 3, width = 7.5, dpi = 300)
 
 d %>% 
   group_by(Plant_Code, `Treatment class`) %>% 
